@@ -1,0 +1,116 @@
+---
+- name: check if oc client is installed
+  shell: which oc
+  register: oc_installed
+
+- name: check if kubeconfig exists
+  stat:
+    path: "{{ ansible_env.HOME }}/.kube/config"
+  register: kubeconfig
+
+- name: fail when kubeconfig doesn't exist
+  fail:
+    msg: Cannot find kubeconfig at "{{ ansible_env.HOME }}/.kube/config", please check"
+  when: kubeconfig.stat.exists == False
+
+- name: check if jq is installed
+  shell: which jq
+  register: jq_installed
+
+- name: install jq if not installed
+  package:
+    name: jq
+    state: latest
+  when: jq_installed.rc != 0
+
+- block:
+    - name: get number of pods in running state on the cluster
+      shell: oc get pods --all-namespaces -o json | jq '.items[].status.phase' | grep "Running" | wc -l
+
+    - name: openshift app node count
+      shell:  oc get nodes -l node-role.kubernetes.io/compute=true | grep -w "Ready" | wc -l
+      register: ocp_compute_count
+
+    - name: openshift masters and etcd count assuming that masters are etcd are co-located
+      shell: oc get nodes -l node-role.kubernetes.io/master=true | grep -w "Ready" | wc -l
+      register: ocp_master_count
+
+    - name: openshift configmaps
+      shell: oc get cm --all-namespaces -o json
+      register: ocp_cm_info
+
+    - name: ocp clusternetwork
+      shell: oc get clusternetwork -o json
+      register: ocp_network 
+
+    - name: deployment configs
+      shell: oc get dc -o json --all-namespaces
+      register: ocp_dc
+      ignore_errors: yes
+
+    - name: persistant volumes
+      shell: oc get pv -o json
+      register: ocp_pv
+      ignore_errors: yes
+
+    - name: persistent volume claims
+      shell: oc get pvc -o json
+      register: ocp_pvc
+      ignore_errors: yes
+
+    - name: quotas per namespace
+      shell: oc get quotas --all-namespaces -o json
+      register: ocp_quotas
+      ignore_errors: yes
+
+    - name: ocp daemonsets
+      shell: oc get ds --all-namespaces -o json
+      register: ocp_ds
+      ignore_errors: yes
+
+    - name: oc client version
+      shell: oc version | grep -w oc | cut -d ' ' -f2
+      register: oc_client_version
+
+    - name: oc server version
+      shell: oc version | grep -w openshift | cut -d ' ' -f2
+      register: oc_server_version
+
+    - name: set ocp info as facts
+      set_fact:
+        openshift_tests_version: "{{ ocp_tests_version.stdout }}"
+        openshift_pod_version: "{{ ocp_pod_version.stdout }}"
+        openshift_running_pod_count: "{{ ocp_running_pods.stdout }}"
+        openshift_cm_info: "{{ ocp_cm_info.stdout }}"
+        openshift_clusternetwork: "{{ ocp_network.stdout }}"
+        openshift_node_version: "{{ ocp_node_version.stdout }}"
+        openshift_dockerregistry_version: "{{ ocp_dockerregistry_version.stdout }}"
+        openshift_tuned_profiles_version: "{{ tuned_profiles_atomic.stdout }}"
+        openshift_client_version: "{{ oc_client_version.stdout }}"
+        openshift_server_version: "{{ oc_server_version.stdout }}"
+        openshift_compute_count: "{{ ocp_compute_count.stdout }}" 
+
+    - name: set ocp dc as fact
+      set_fact:
+        openshift_deployment_configs: "{{ ocp_dc.stdout }}"
+      when: ocp_dc.rc == 0 
+
+    - name: set ocp pv's as fact
+      set_fact:
+        openshift_pv: "{{ ocp_pv.stdout }}"
+
+    - name: set ocp persistant volume info as fact
+      set_fact:
+        openshift_pvc: "{{ ocp_pvc.stdout }}"
+      when: ocp_pvc.rc == 0
+
+    - name: set ocp quotas as a fact
+      set_fact:
+        openshift_quotas: "{{ ocp_quotas.stdout }}"
+      when: ocp_quotas.rc == 0
+
+    - name: set ocp daemonset info as fact
+      set_fact:
+        openshift_daemonset_info: "{{ ocp_ds.stdout }}"
+      when: ocp_ds.rc == 0
+  when: ( oc_installed.rc == 0 and kubeconfig.stat.exists == True )
