@@ -1,0 +1,14 @@
+[Unit]
+Description= This keeps pulling  the latest code from the alderaan jobs repo
+After=docker.service 
+Requires=docker.service
+
+[Service]
+Type=simple
+TimeoutStartSec=0
+Restart=on-failure
+RestartSec=10
+RemainAfterExit=yes
+ExecStartPre=-/usr/bin/docker rm -f ravielluri/alderaan-update
+ExecStartPre=-/usr/bin/docker pull ravielluri/alderaan-update
+ExecStart=/usr/bin/docker run -d -v watch:/watch ravielluri/alderaan-update

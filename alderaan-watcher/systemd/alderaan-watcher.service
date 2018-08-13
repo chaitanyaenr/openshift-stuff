@@ -1,0 +1,14 @@
+[Unit]
+Description=Alderaan watcher which watches for new templates and creates a job in OpenShift Jenkins
+After=docker.service alderaan-update.service 
+Requires=docker.service alderaan-update.service
+
+[Service]
+Type=simple
+TimeoutStartSec=0
+Restart=on-failure
+RestartSec=10
+RemainAfterExit=yes
+ExecStartPre=-/usr/bin/docker rm -f ravielluri/alderaan-watcher
+ExecStartPre=-/usr/bin/docker pull ravielluri/alderaan-watcher
+ExecStart=/usr/bin/docker run -d -v /root/jjb.ini:/root/jjb.ini:Z -v watch:/watch ravielluri/alderaan-watcher
