@@ -1,4 +1,0 @@
-resources:
-        limits:
-          cpu: 750m
-          memory: 1024Mi
