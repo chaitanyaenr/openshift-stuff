@@ -1,5 +1,16 @@
 $ oc edit cm node-config-compute -n openshift-node
-and add the max-pods under KubeletArguments like
+
+Add the max-pods under KubeletArguments:
+
+ kind: NodeConfig
+ kubeletArguments:
+   max-pods:
+   - '510'
+
+When using crio:
+$ oc edit cm node-config-compute-crio -n openshift-node
+
+Add the max-pods under KubeletArguments:
 
  kind: NodeConfig
  kubeletArguments:
